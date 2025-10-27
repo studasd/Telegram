@@ -67,6 +67,7 @@ import org.telegram.ui.Components.CombinedDrawable;
 import org.telegram.ui.Components.CubicBezierInterpolator;
 import org.telegram.ui.Components.EditTextCaption;
 import org.telegram.ui.Components.EditTextEmoji;
+import org.telegram.ui.Components.EditTextSuggestionsFix;
 import org.telegram.ui.Components.EmojiView;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.MentionsContainerView;
@@ -236,6 +237,7 @@ public class CaptionContainerView extends FrameLayout {
                 return true;
             }
         };
+        editText.getEditText().addTextChangedListener(new EditTextSuggestionsFix());
         editText.setFocusable(true);
         editText.setFocusableInTouchMode(true);
         editText.getEditText().hintLayoutYFix = true;
@@ -501,7 +503,7 @@ public class CaptionContainerView extends FrameLayout {
             SpannableStringBuilder builder = new SpannableStringBuilder(editText.getText());
             builder.replace(start, start + len, text);
             if (parseEmoji) {
-                Emoji.replaceEmoji(builder, editText.getEditText().getPaint().getFontMetricsInt(), AndroidUtilities.dp(20), false);
+                Emoji.replaceEmoji(builder, editText.getEditText().getPaint().getFontMetricsInt(), false);
             }
             editText.setText(builder);
             editText.setSelection(start + text.length());
@@ -774,7 +776,7 @@ public class CaptionContainerView extends FrameLayout {
             return true;
         }
 
-        if (editText.isKeyboardVisible() && !keyboardNotifier.ignoring) {
+        if ((editText.isKeyboardVisible() || keyboardNotifier.keyboardVisible()) && !keyboardNotifier.ignoring) {
             closeKeyboard();
             return true;
         }
@@ -813,7 +815,7 @@ public class CaptionContainerView extends FrameLayout {
     private Path replyLinePath;
     private float[] replyLinePathRadii;
     private void drawReply(Canvas canvas) {
-        if (!hasReply || replyBackgroundBlur == null || replyTextBlur == null || customBlur()) {
+        if (!hasReply || replyBackgroundBlur == null || replyTextBlur == null) {
             return;
         }
 

@@ -167,17 +167,17 @@ public class HashtagSearchController {
         final String username = _username;
         search.loading = true;
 
-        final int[] reqId = new int[1];
         TLObject chat = null;
         if (!TextUtils.isEmpty(username)) {
             chat = MessagesController.getInstance(currentAccount).getUserOrChat(username);
             if (chat == null) {
-                reqId[0] = search.reqId = MessagesController.getInstance(currentAccount).getUserNameResolver().resolve(username, resolvedChatId -> {
+                Runnable[] cancel = new Runnable[1];
+                cancel[0] = search.cancel = MessagesController.getInstance(currentAccount).getUserNameResolver().resolve(username, resolvedChatId -> {
                     if (!TextUtils.equals(search.lastHashtag, query)) return;
                     final TLObject resolvedChat = MessagesController.getInstance(currentAccount).getUserOrChat(username);
                     if (resolvedChat == null) {
-                        if (reqId[0] == search.reqId) {
-                            search.reqId = -1;
+                        if (cancel[0] == search.cancel) {
+                            search.cancel = null;
                         } else {
                             return;
                         }
@@ -220,8 +220,9 @@ public class HashtagSearchController {
                 request = req;
             } else {
                 TLRPC.TL_channels_searchPosts req = new TLRPC.TL_channels_searchPosts();
-                req.limit = limit;
+                req.flags |= 1;
                 req.hashtag = query;
+                req.limit = limit;
                 req.offset_peer = new TLRPC.TL_inputPeerEmpty();
                 if (search.lastOffsetPeer != null) {
                     req.offset_rate = search.lastOffsetRate;
@@ -231,6 +232,7 @@ public class HashtagSearchController {
                 request = req;
             }
         }
+        final int[] reqId = new int[1];
         reqId[0] = search.reqId = ConnectionsManager.getInstance(currentAccount).sendRequest(request, (res, err) -> {
             if (res instanceof TLRPC.messages_Messages) {
                 TLRPC.messages_Messages messages = (TLRPC.messages_Messages) res;
@@ -340,6 +342,7 @@ public class HashtagSearchController {
         }
 
         public int reqId = -1;
+        public Runnable cancel;
         public boolean loading;
         public int lastOffsetRate;
         public int lastOffsetId;
@@ -365,6 +368,10 @@ public class HashtagSearchController {
             if (reqId >= 0) {
                 ConnectionsManager.getInstance(currentAccount).cancelRequest(reqId, true);
                 reqId = -1;
+            }
+            if (cancel != null) {
+                cancel.run();
+                cancel = null;
             }
             messages.clear();
             generatedIds.clear();
